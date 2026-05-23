@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>英文單字學習器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            animation: slideDown 0.6s ease-out;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 30px;
+            animation: slideUp 0.6s ease-out 0.1s both;
+        }
+
+        input[type="text"],
+        select {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        select {
+            min-width: 140px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+        }
+
+        .cards-container {
+            display: grid;
+            gap: 16px;
+            margin-bottom: 40px;
+            animation: fadeIn 0.6s ease-out 0.2s both;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            border-left: 4px solid #667eea;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .card.learned {
+            border-left-color: #48bb78;
+            background: linear-gradient(to right, rgba(72, 187, 120, 0.05), transparent);
+        }
+
+        .word-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .word-info {
+            flex: 1;
+        }
+
+        .word {
+            font-size: 24px;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 4px;
+        }
+
+        .phonetic {
+            font-size: 13px;
+            color: #718096;
+            font-style: italic;
+        }
+
+        .play-btn {
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .play-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .play-btn:active {
+            transform: scale(0.98);
+        }
+
+        .play-btn.loading {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .translation {
+            font-size: 16px;
+            color: #4a5568;
+            margin-bottom: 12px;
+            padding-left: 20px;
+            border-left: 3px solid #fed7aa;
+        }
+
+        .example {
+            font-size: 20px !important;
+            color: #718096;
+            font-style: italic;
+            margin-bottom: 16px;
+            padding: 12px;
+            background: #f7fafc;
+            border-radius: 6px;
+            line-height: 1.8;
+        }
+
+        .card-footer {
+            display: flex;
+            gap: 12px;
+        }
+
+        .learn-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: 2px solid #cbd5e0;
+            background: white;
+            color: #4a5568;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .card.learned .learn-btn {
+            border-color: #48bb78;
+            background: #48bb78;
+            color: white;
+        }
+
+        .learn-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .progress-section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            animation: slideUp 0.6s ease-out 0.3s both;
+        }
+
+        .progress-label {
+            font-size: 13px;
+            color: #718096;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .progress-bar-container {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 10px;
+            background: #e2e8f0;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.5s ease;
+            border-radius: 5px;
+        }
+
+        .progress-text {
+            font-size: 16px;
+            font-weight: 700;
+            color: #2d3748;
+            min-width: 50px;
+            text-align: right;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #718096;
+        }
+
+        .empty-state p {
+            font-size: 16px;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .spinning {
+            animation: spin 1s linear infinite;
+        }
+
+        @media (max-width: 640px) {
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            select {
+                min-width: auto;
+            }
+
+            .word {
+                font-size: 20px;
+            }
+
+            .play-btn {
+                padding: 8px 12px;
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎓 英文單字學習器</h1>
+            <p>點擊「發音」按鈕聽 Google 自然語音</p>
+        </div>
+
+        <div class="controls">
+            <input type="text" id="searchInput" placeholder="搜尋單字或翻譯...">
+            <select id="filterSelect">
+                <option value="all">全部</option>
+                <option value="learned">已學習</option>
+                <option value="learning">學習中</option>
+            </select>
+        </div>
+
+        <div style="background: white; border-radius: 12px; padding: 24px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); animation: slideUp 0.6s ease-out 0.1s both;">
+            <h3 style="margin: 0 0 16px 0; color: #2d3748; font-size: 18px;">➕ 新增單字</h3>
+            <div style="display: flex; gap: 12px;">
+                <input type="text" id="newWord" placeholder="輸入英文單字..." style="flex: 1; padding: 12px 16px; border: 0.5px solid var(--color-border-tertiary); border-radius: 8px; font-size: 14px;">
+                <button id="addWordBtn" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.3s ease; white-space: nowrap;">新增單字</button>
+            </div>
+            <p style="margin: 12px 0 0 0; font-size: 12px; color: #718096;">輸入單字後會自動產生翻譯、音標和例句</p>
+        </div>
+
+        <div class="cards-container" id="cardsContainer"></div>
+
+        <div class="progress-section">
+            <div class="progress-label">學習進度</div>
+            <div class="progress-bar-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text"><span id="progressText">0</span>/<span id="totalWords">23</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let wordsData = [
+            { id: 1, word: 'variety', translation: '多樣性；種類', example: 'The store offers a wide variety of products.', phonetic: 'ˈveəriəti', learned: false },
+            { id: 2, word: 'synthetic', translation: '合成的；人造的', example: 'Synthetic materials are often cheaper than natural ones.', phonetic: 'sɪnˈθetɪk', learned: false },
+            { id: 3, word: 'rubbers', translation: '橡膠；橡皮擦', example: 'The car uses synthetic rubbers for its tires.', phonetic: 'ˈrʌbərz', learned: false },
+            { id: 4, word: 'dodge', translation: '閃躲；迴避', example: "Don't try to dodge the question.", phonetic: 'dɑːdʒ', learned: false },
+            { id: 5, word: 'ingredients', translation: '成分；材料', example: 'Check the ingredients list before buying.', phonetic: 'ɪnˈɡrediənts', learned: false },
+            { id: 6, word: 'longer-lasting', translation: '更持久的', example: 'This paint has a longer-lasting finish.', phonetic: 'ˈlɔːŋɡər ˈlɑːstɪŋ', learned: false },
+            { id: 7, word: 'texture', translation: '質地；紋理', example: 'The bread has a soft texture.', phonetic: 'ˈtekstʃər', learned: false },
+            { id: 8, word: 'tackiness', translation: '粘性；俗氣', example: 'The product is known for its low tackiness.', phonetic: 'ˈtækɪnəs', learned: false },
+            { id: 9, word: 'tyres', translation: '輪胎', example: 'The car needs new tyres.', phonetic: 'ˈtaɪərz', learned: false },
+            { id: 10, word: 'glue', translation: '膠水；膠黏劑', example: 'Use glue to stick the pieces together.', phonetic: 'ɡluː', learned: false },
+            { id: 11, word: 'sweetener', translation: '甜味劑；增甜劑', example: 'This drink contains artificial sweetener.', phonetic: 'ˈswiːt(ə)nər', learned: false },
+            { id: 12, word: 'peer-reviewed', translation: '經過同行評審的', example: 'The study was published in a peer-reviewed journal.', phonetic: 'ˈpɪə rɪˈvjuːd', learned: false },
+            { id: 13, word: 'estimate', translation: '估計；評估', example: 'We estimate the project will cost $100,000.', phonetic: 'ˈestɪmət', learned: false },
+            { id: 14, word: 'grams', translation: '克（重量單位）', example: 'The recipe calls for 250 grams of flour.', phonetic: 'ɡræmz', learned: false },
+            { id: 15, word: 'persist', translation: '堅持；持續', example: 'If the problem persists, contact support.', phonetic: 'pərˈsɪst', learned: false },
+            { id: 16, word: 'non-disposable', translation: '非一次性的；可重複使用的', example: 'Non-disposable bags are better for the environment.', phonetic: 'nɒn dɪˈspəʊzəbl', learned: false },
+            { id: 17, word: 'inorganic', translation: '無機的；不是有機的', example: 'Inorganic fertilizers are commonly used in agriculture.', phonetic: 'ɪnɔːˈɡænɪk', learned: false },
+            { id: 18, word: 'unsustainable', translation: '不可持續的；無法長期維持的', example: 'Current consumption patterns are unsustainable.', phonetic: 'ʌnsəˈsteɪnəbl', learned: false },
+            { id: 19, word: 'treating', translation: '對待；處理；治療', example: 'We are treating the water before use.', phonetic: 'ˈtriːtɪŋ', learned: false },
+            { id: 20, word: 'tears', translation: '眼淚；撕裂', example: 'Tears rolled down her cheeks.', phonetic: 'tɪərz', learned: false },
+            { id: 21, word: 'article', translation: '文章；物品', example: 'She wrote an article about climate change.', phonetic: 'ˈɑːrtɪkl', learned: false },
+            { id: 22, word: 'pursue', translation: '追求；追趕', example: 'He decided to pursue his dream.', phonetic: 'pərˈsuː', learned: false },
+            { id: 23, word: 'grind', translation: '磨碎；研磨', example: 'Please grind the coffee beans.', phonetic: 'ɡraɪnd', learned: false }
+        ];
+
+        let currentAudio = null;
+
+        // IndexedDB 初始化
+        let db;
+        const dbRequest = indexedDB.open('VocabularyDB', 1);
+
+        dbRequest.onerror = () => {
+            console.error('IndexedDB 打開失敗');
+        };
+
+        dbRequest.onupgradeneeded = (event) => {
+            db = event.target.result;
+            if (!db.objectStoreNames.contains('words')) {
+                db.createObjectStore('words');
+            }
+        };
+
+        dbRequest.onsuccess = (event) => {
+            db = event.target.result;
+            loadWordsFromStorage();
+        };
+
+        // 從 IndexedDB 讀取數據
+        function loadWordsFromStorage() {
+            if (!db) return;
+            
+            const transaction = db.transaction(['words'], 'readonly');
+            const store = transaction.objectStore('words');
+            const request = store.get('vocabularyWords');
+
+            request.onsuccess = () => {
+                if (request.result) {
+                    wordsData = request.result;
+                }
+                renderCards();
+                updateProgress();
+            };
+        }
+
+        // 保存數據到 IndexedDB
+        function saveWordsToStorage() {
+            if (!db) {
+                console.warn('IndexedDB 未初始化，嘗試使用 localStorage');
+                try {
+                    localStorage.setItem('vocabularyWords', JSON.stringify(wordsData));
+                } catch (e) {
+                    console.error('儲存失敗', e);
+                }
+                return;
+            }
+
+            const transaction = db.transaction(['words'], 'readwrite');
+            const store = transaction.objectStore('words');
+            store.put(wordsData, 'vocabularyWords');
+        }
+
+        // Google Translate TTS API
+        async function playAudio(word, btn) {
+            if (btn.disabled) return;
+
+            btn.disabled = true;
+            const originalContent = btn.innerHTML;
+            btn.innerHTML = '<span class="spinning">🔊</span> 播放中...';
+
+            try {
+                // 使用 Google Translate TTS (需要確保跨域支援)
+                const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(word)}&tl=en&client=tw-ob`;
+                
+                if (currentAudio) {
+                    currentAudio.pause();
+                    currentAudio.currentTime = 0;
+                }
+
+                currentAudio = new Audio();
+                currentAudio.crossOrigin = "anonymous";
+                currentAudio.src = url;
+
+                currentAudio.play().catch(err => {
+                    console.error('Google Translate 不可用，使用替代方案...', err);
+                    playAudioFallback(word, btn, originalContent);
+                    return;
+                });
+
+                currentAudio.onended = () => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalContent;
+                };
+
+            } catch (error) {
+                console.error('錯誤:', error);
+                playAudioFallback(word, btn, originalContent);
+            }
+        }
+
+        // 備用方案: 使用瀏覽器內置 Web Speech API
+        function playAudioFallback(word, btn, originalContent) {
+            try {
+                const utterance = new SpeechSynthesisUtterance(word);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.9;
+                utterance.pitch = 1.0;
+
+                speechSynthesis.cancel();
+                speechSynthesis.speak(utterance);
+
+                utterance.onend = () => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalContent;
+                };
+
+            } catch (error) {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            }
+        }
+
+        function updateProgress() {
+            const learned = wordsData.filter(w => w.learned).length;
+            const total = wordsData.length;
+            const percentage = (learned / total) * 100;
+            
+            document.getElementById('progressFill').style.width = percentage + '%';
+            document.getElementById('progressText').textContent = learned;
+            document.getElementById('totalWords').textContent = total;
+        }
+
+        function renderCards(filter = 'all', query = '') {
+            const container = document.getElementById('cardsContainer');
+            container.innerHTML = '';
+
+            let filtered = wordsData.filter(w => {
+                const matchQuery = w.word.toLowerCase().includes(query.toLowerCase()) || 
+                                  w.translation.includes(query);
+                const matchFilter = filter === 'all' || 
+                                  (filter === 'learned' && w.learned) || 
+                                  (filter === 'learning' && !w.learned);
+                return matchQuery && matchFilter;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>沒有符合的單字</p></div>';
+                return;
+            }
+
+            filtered.forEach((item, index) => {
+                const realIndex = wordsData.indexOf(item);
+                const card = document.createElement('div');
+                card.className = 'card' + (item.learned ? ' learned' : '');
+
+                card.innerHTML = `
+                    <div class="word-header">
+                        <div class="word-info">
+                            <div class="word">${item.word}</div>
+                            <div class="phonetic">${item.phonetic}</div>
+                        </div>
+                        <button class="play-btn" data-index="${realIndex}">
+                            🔊 發音
+                        </button>
+                    </div>
+                    <div class="translation">📌 ${item.translation}</div>
+                    <div class="example">💬 ${item.example}</div>
+                    <div class="card-footer">
+                        <button class="learn-btn" data-index="${realIndex}">
+                            ${item.learned ? '✓ 已學習' : '+ 標記已學'}
+                        </button>
+                    </div>
+                `;
+
+                // 播放按鈕
+                const playBtn = card.querySelector('.play-btn');
+                playBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    playAudio(item.word, playBtn);
+                });
+
+                // 標記按鈕
+                const learnBtn = card.querySelector('.learn-btn');
+                learnBtn.addEventListener('click', () => {
+                    wordsData[realIndex].learned = !wordsData[realIndex].learned;
+                    saveWordsToStorage();
+                    updateProgress();
+                    renderCards(document.getElementById('filterSelect').value, document.getElementById('searchInput').value);
+                });
+
+                container.appendChild(card);
+            });
+        }
+
+        // 事件監聽
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            renderCards(document.getElementById('filterSelect').value, e.target.value);
+        });
+
+        document.getElementById('filterSelect').addEventListener('change', (e) => {
+            renderCards(e.target.value, document.getElementById('searchInput').value);
+        });
+
+        // 新增單字功能 - 自動產生翻譯、音標和例句
+        document.getElementById('addWordBtn').addEventListener('click', async () => {
+            const word = document.getElementById('newWord').value.trim();
+
+            if (!word) {
+                alert('請輸入英文單字！');
+                return;
+            }
+
+            const btn = document.getElementById('addWordBtn');
+            btn.disabled = true;
+            btn.innerHTML = '生成中...';
+
+            try {
+                // 使用免費的 API 來獲取單字資訊
+                const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word.toLowerCase()}`);
+                
+                if (!response.ok) {
+                    throw new Error('找不到此單字');
+                }
+
+                const data = await response.json();
+                const wordData = data[0];
+
+                // 提取資訊
+                const translation = wordData.meanings?.[0]?.definitions?.[0]?.definition || '定義未找到';
+                const phonetic = wordData.phonetic || '';
+                const example = wordData.meanings?.[0]?.definitions?.[0]?.example || `This is an example of ${word}.`;
+
+                // 使用翻譯 API 翻譯定義為中文
+                const chineseResponse = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(translation)}&langpair=en|zh-TW`);
+                const chineseData = await chineseResponse.json();
+                const chineseTranslation = chineseData.responseData?.translatedText || translation;
+
+                // 檢查是否已存在
+                if (wordsData.some(w => w.word.toLowerCase() === word.toLowerCase())) {
+                    alert('此單字已存在！');
+                    btn.disabled = false;
+                    btn.innerHTML = '新增單字';
+                    return;
+                }
+
+                const newId = Math.max(...wordsData.map(w => w.id), 0) + 1;
+                wordsData.push({
+                    id: newId,
+                    word: word,
+                    translation: chineseTranslation,
+                    example: example,
+                    phonetic: phonetic,
+                    learned: false
+                });
+
+                // 清空輸入框
+                document.getElementById('newWord').value = '';
+
+                // 保存到 localStorage
+                saveWordsToStorage();
+
+                // 更新進度條和卡片
+                updateProgress();
+                renderCards('all', '');
+                document.getElementById('searchInput').value = '';
+
+                alert(`✅ 單字已新增！\n單字: ${word}\n翻譯: ${chineseTranslation}`);
+            } catch (error) {
+                alert('❌ 錯誤: ' + error.message + '\n請確認單字拼寫正確');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '新增單字';
+            }
+        });
+
+        // 初始化（由 IndexedDB 回調觸發）
+    </script>
+</body>
+</html>
