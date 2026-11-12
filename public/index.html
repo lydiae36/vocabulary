@@ -334,6 +334,15 @@
         [hidden] { display: none !important; }
         #candidates { width: 100%; padding: 12px; }
         #status { color: white; margin-bottom: 12px; }
+        .toolbar { display: flex; gap: 0.75rem; margin-bottom: 1rem; }
+        .tool-icon { width: 48px; height: 48px; border: 0; border-radius: 10px; background: white; color: #4c3c84; font-size: 1.5rem; cursor: pointer; }
+        .tool-icon:disabled { opacity: 0.5; cursor: default; }
+        #searchInput, #filterSelect { width: 100%; }
+        .tool-dialog { width: min(28rem, 92vw); max-height: 90dvh; overflow: auto; margin: auto; padding: 1.25rem; border: 0; border-radius: 12px; }
+        .tool-dialog::backdrop { background: rgb(0 0 0 / 45%); }
+        .tool-dialog[open], #addWordForm { display: grid; gap: 0.75rem; }
+        .tool-dialog input, .tool-dialog textarea { width: 100%; min-width: 0; font: inherit; }
+        .dialog-feedback:empty { display: none; }
         .card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
         .card-heading .word { min-width: 0; overflow-wrap: anywhere; }
         .edit-translation {
@@ -365,59 +374,65 @@
 
 
         <p id="status" role="status"></p>
-        <div class="controls">
-            <label for="profile">選擇單字庫</label>
-            <select id="profile">
+        <div class="toolbar" aria-label="單字工具">
+            <button id="openProfiles" class="tool-icon" type="button" aria-label="選擇單字庫" title="選擇單字庫">📖</button>
+            <button id="openPhoto" class="tool-icon" type="button" aria-label="拍課本或選照片" title="拍課本或選照片" disabled>📷</button>
+            <button id="openAdd" class="tool-icon" type="button" aria-label="新增單字" title="新增單字" disabled>＋</button>
+        </div>
+        <section id="library" hidden>
+            <div class="controls">
+                <input type="text" id="searchInput" aria-label="搜尋單字或翻譯" placeholder="搜尋單字或翻譯...">
+            </div>
+            <div class="controls">
+                <select id="filterSelect" aria-label="單字分類">
+                    <option value="all">全部單字</option>
+                    <option value="due">到期複習</option>
+                    <option value="learned">已學習</option>
+                    <option value="learning">學習中</option>
+                </select>
+            </div>
+            <div class="progress-section">
+                <div class="progress-label">學習進度</div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+                    <div class="progress-text"><span id="progressText">0</span>/<span id="totalWords">0</span></div>
+                </div>
+                <button id="dueCount" class="learn-btn" type="button">待複習 0 個</button>
+                <p id="reviewHint" role="status" hidden></p>
+            </div>
+            <div class="cards-container" id="cardsContainer" tabindex="-1" aria-label="單字清單"></div>
+        </section>
+        <dialog id="profileDialog" class="tool-dialog" aria-labelledby="profileTitle">
+            <h2 id="profileTitle">選擇單字庫</h2>
+            <select id="profile" aria-labelledby="profileTitle" autofocus>
                 <option value="" selected disabled>請選擇人員</option>
                 <option value="parent">我的單字庫</option>
                 <option value="son">兒子的單字庫</option>
                 <option value="daughter">女兒的單字庫</option>
             </select>
-        </div>
-        <section id="library" hidden>
-        <div class="controls">
-            <button id="dueCount" class="learn-btn">待複習 0 個</button>
-            <p id="reviewHint" role="status" hidden></p>
-        </div>
-        <div class="controls">
-            <label for="photo">拍課本或選照片</label>
-            <input id="photo" type="file" accept="image/*" capture="environment">
-            <button id="scan" class="learn-btn">辨識英文</button>
+            <form method="dialog"><button class="learn-btn">關閉</button></form>
+        </dialog>
+        <dialog id="photoDialog" class="tool-dialog" aria-labelledby="photoTitle">
+            <h2 id="photoTitle">拍課本或選照片</h2>
+            <label for="photo">課本照片</label>
+            <input id="photo" type="file" accept="image/*">
+            <button id="scan" class="learn-btn" type="button">辨識英文</button>
             <label for="candidates">確認要加入的單字</label>
             <textarea id="candidates" rows="5" placeholder="辨識結果會出現在這裡，也可以貼上英文單字"></textarea>
-            <button id="importWords" class="learn-btn">加入候選單字</button>
-        </div>
-
-        <div class="controls">
-            <input type="text" id="searchInput" placeholder="搜尋單字或翻譯...">
-            <select id="filterSelect">
-                <option value="all">全部</option><option value="due">到期複習</option>
-                <option value="learned">已學習</option>
-                <option value="learning">學習中</option>
-            </select>
-        </div>
-
-        <div style="background: white; border-radius: 12px; padding: 24px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); animation: slideUp 0.6s ease-out 0.1s both;">
-            <h3 style="margin: 0 0 16px 0; color: #2d3748; font-size: 18px;">➕ 新增單字</h3>
-            <div style="display: flex; gap: 12px;">
-                <input type="text" id="newWord" placeholder="輸入英文單字..." style="flex: 1; padding: 12px 16px; border: 0.5px solid var(--color-border-tertiary); border-radius: 8px; font-size: 14px;">
-                <button id="addWordBtn" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.3s ease; white-space: nowrap;">新增單字</button>
-            </div>
-            <p style="margin: 12px 0 0 0; font-size: 12px; color: #718096;">輸入單字後會自動產生翻譯、音標和例句</p>
-        </div>
-
-        <div class="cards-container" id="cardsContainer" tabindex="-1" aria-label="單字清單"></div>
-
-        <div class="progress-section">
-            <div class="progress-label">學習進度</div>
-            <div class="progress-bar-container">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill"></div>
-                </div>
-                <div class="progress-text"><span id="progressText">0</span>/<span id="totalWords">23</span></div>
-            </div>
-        </div>
-        </section>
+            <p class="dialog-feedback" role="status"></p>
+            <button id="importWords" class="learn-btn" type="button">加入候選單字</button>
+            <form method="dialog"><button class="learn-btn">關閉</button></form>
+        </dialog>
+        <dialog id="addDialog" class="tool-dialog" aria-labelledby="addTitle">
+            <h2 id="addTitle">新增單字</h2>
+            <form id="addWordForm">
+                <label for="newWord">英文單字</label>
+                <input id="newWord" type="text" placeholder="輸入英文單字..." required autofocus>
+                <p class="dialog-feedback" role="status"></p>
+                <button id="addWordBtn" class="learn-btn" type="submit">新增單字</button>
+            </form>
+            <form method="dialog"><button class="learn-btn">關閉</button></form>
+        </dialog>
         <dialog id="translationDialog" aria-labelledby="translationTitle">
             <form id="translationForm">
                 <h2 id="translationTitle">編輯中文</h2>
@@ -463,7 +478,10 @@
         let profile = null;
         let latestLoad = 0;
         const byId = id => document.getElementById(id);
-        const notice = message => { byId('status').textContent = message; };
+        const notice = message => {
+            const feedback = document.querySelector('.tool-dialog[open] .dialog-feedback') ?? byId('status');
+            feedback.textContent = message;
+        };
         const translationDialog = byId('translationDialog');
         let editingWord;
 
@@ -762,8 +780,25 @@
 
         const profileSelect = byId('profile');
         const profileStorageKey = 'vocabulary.lastProfile';
+        for (const [buttonId, dialogId] of [['openProfiles', 'profileDialog'], ['openPhoto', 'photoDialog'], ['openAdd', 'addDialog']]) {
+            const dialog = byId(dialogId);
+            byId(buttonId).onclick = () => {
+                if (byId('library').inert) return;
+                dialog.showModal();
+                notice('');
+            };
+            const closeWhileBusy = event => {
+                if (byId('library').inert) event.preventDefault();
+            };
+            dialog.addEventListener('cancel', closeWhileBusy);
+            dialog.querySelector('form[method="dialog"]').addEventListener('submit', closeWhileBusy);
+        }
         const selectLibrary = () => perform(profileSelect, async () => {
             profile = profileSelect.value;
+            byId('openPhoto').disabled = true;
+            byId('openAdd').disabled = true;
+            byId('openProfiles').setAttribute('aria-label', '選擇單字庫');
+            byId('openProfiles').title = '選擇單字庫';
             byId('library').hidden = true;
             stopPlayback?.();
             byId('newWord').value = '';
@@ -778,19 +813,30 @@
                 profileSelect.value = '';
                 throw error;
             }
+            const label = '選擇單字庫：' + profileSelect.selectedOptions[0].textContent;
+            byId('openProfiles').setAttribute('aria-label', label);
+            byId('openProfiles').title = label;
+            byId('openPhoto').disabled = false;
+            byId('openAdd').disabled = false;
             try {
                 localStorage.setItem(profileStorageKey, profile);
             } catch {
                 // The library still works when browser storage is unavailable.
             }
         });
-        profileSelect.onchange = () => void selectLibrary();
-        byId('addWordBtn').onclick = event => void perform(event.currentTarget, async () => {
-            const word = byId('newWord').value.trim();
-            if (!/^[a-z]+(?:[-'][a-z]+)*$/i.test(word)) throw Error('請輸入一個英文單字。');
-            await addWords(word);
-            byId('newWord').value = '';
-        });
+        profileSelect.onchange = () => {
+            byId('profileDialog').close();
+            void selectLibrary();
+        };
+        byId('addWordForm').onsubmit = event => {
+            event.preventDefault();
+            void perform(byId('addWordBtn'), async () => {
+                const word = byId('newWord').value.trim();
+                if (!/^[a-z]+(?:[-'][a-z]+)*$/i.test(word)) throw Error('請輸入一個英文單字。');
+                await addWords(word);
+                byId('newWord').value = '';
+            });
+        };
         byId('scan').onclick = event => void perform(event.currentTarget, () => scan(byId('photo').files[0]));
         byId('importWords').onclick = event => void perform(event.currentTarget, () => addWords(byId('candidates').value));
         byId('searchInput').oninput = render;
