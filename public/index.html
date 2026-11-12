@@ -376,6 +376,7 @@
             <summary>匯入舊單字</summary>
             <button id="seed" class="learn-btn">加入原版內建單字</button>
             <label>匯入舊單字 JSON <input id="legacyFile" type="file" accept=".json,application/json"></label>
+            <p id="legacyStatus" role="status"></p>
         </details>
 
         <div class="controls">
@@ -476,13 +477,13 @@
             render();
         }
 
-        async function perform(button, action) {
+        async function perform(button, action, feedback = notice) {
             if (byId('library').inert) return;
             button.disabled = true;
             byId('library').inert = true;
-            notice('');
+            feedback('');
             try { await action(); }
-            catch (error) { notice(error.message); }
+            catch (error) { feedback(error.message); }
             finally {
                 button.disabled = false;
                 byId('library').inert = false;
@@ -736,11 +737,33 @@
             byId('searchInput').value = '';
             render();
         };
+        const legacyNotice = message => { byId('legacyStatus').textContent = message; };
         byId('seed').onclick = event => void perform(event.currentTarget, async () => {
-            for (const entry of starterWords) await api('words', 'POST', entry);
+            legacyNotice('正在檢查原版內建單字…');
             await loadWords();
-            notice('已匯入原版內建單字。');
-        });
+            const existing = new Map(wordsData.map(item => [item.word, item]));
+            const pending = starterWords.filter(entry => {
+                const item = existing.get(entry.word);
+                return !item || !item.translation || !item.example || !item.phonetic;
+            });
+            if (!pending.length) {
+                legacyNotice('原版的 ' + starterWords.length + ' 個單字都已在單字庫裡。');
+                return;
+            }
+            let done = 0;
+            try {
+                for (const entry of pending) {
+                    legacyNotice('正在匯入 ' + (done + 1) + '／' + pending.length + '…');
+                    await api('words', 'POST', entry);
+                    done++;
+                }
+            } finally { if (profile) await loadWords(); }
+            const added = pending.filter(entry => !existing.has(entry.word)).length;
+            byId('filterSelect').value = 'all';
+            byId('searchInput').value = '';
+            render();
+            legacyNotice('已新增 ' + added + ' 個單字，補齊 ' + (pending.length - added) + ' 個。');
+        }, legacyNotice);
         byId('legacyFile').onchange = event => void perform(event.currentTarget, async () => {
             const file = event.currentTarget.files[0];
             if (!file) return;
@@ -754,8 +777,8 @@
             try {
                 for (const entry of entries) await api('words', 'POST', { ...entry, word: entry.word.trim() });
             } finally { if (profile) await loadWords(); }
-            notice('舊單字已匯入。舊版已學會的單字會排入待複習。');
-        });
+            legacyNotice('舊單字已匯入。舊版已學會的單字會排入待複習。');
+        }, legacyNotice);
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && profile && !byId('library').inert) {
                 void loadWords().catch(error => notice(error.message));
