@@ -356,6 +356,8 @@
         #translationDialog::backdrop { background: rgb(0 0 0 / 45%); }
         #translationDialog textarea { display: block; width: 100%; margin: 0.5rem 0; font: inherit; }
         #translationFeedback { color: #9b2525; }
+        .translation-actions { display: flex; gap: 8px; }
+        .translation-actions .learn-btn { width: auto; }
         .controls { flex-wrap: wrap; }
     </style>
 </head>
@@ -433,8 +435,10 @@
                 <label for="translationInput">中文翻譯</label>
                 <textarea id="translationInput" rows="3" maxlength="500" required autofocus></textarea>
                 <p id="translationFeedback" role="status"></p>
-                <button id="cancelTranslation" type="button" class="learn-btn">取消</button>
-                <button id="saveTranslation" type="submit" class="learn-btn">儲存</button>
+                <div class="translation-actions">
+                    <button id="cancelTranslation" type="button" class="learn-btn">取消</button>
+                    <button id="saveTranslation" type="submit" class="learn-btn">儲存</button>
+                </div>
             </form>
         </dialog>
     </div>
