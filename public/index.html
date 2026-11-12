@@ -677,8 +677,10 @@
             } finally { await worker.terminate(); }
         }
 
-        byId('profile').onchange = event => void perform(event.currentTarget, async () => {
-            profile = byId('profile').value;
+        const profileSelect = byId('profile');
+        const profileStorageKey = 'vocabulary.lastProfile';
+        const selectLibrary = () => perform(profileSelect, async () => {
+            profile = profileSelect.value;
             byId('library').hidden = true;
             stopPlayback?.();
             byId('newWord').value = '';
@@ -690,10 +692,16 @@
                 await loadWords();
             } catch (error) {
                 profile = null;
-                byId('profile').value = '';
+                profileSelect.value = '';
                 throw error;
             }
+            try {
+                localStorage.setItem(profileStorageKey, profile);
+            } catch {
+                // The library still works when browser storage is unavailable.
+            }
         });
+        profileSelect.onchange = () => void selectLibrary();
         byId('addWordBtn').onclick = event => void perform(event.currentTarget, async () => {
             const word = byId('newWord').value.trim();
             if (!/^[a-z]+(?:[-'][a-z]+)*$/i.test(word)) throw Error('請輸入一個英文單字。');
@@ -718,7 +726,16 @@
                 void loadWords().catch(error => notice(error.message));
             }
         });
-        byId('profile').value = '';
+        profileSelect.value = '';
+        try {
+            const savedProfile = localStorage.getItem(profileStorageKey);
+            if (Array.from(profileSelect.options).some(option => !option.disabled && option.value === savedProfile)) {
+                profileSelect.value = savedProfile;
+            }
+        } catch {
+            // Let the user pick a library if browser storage is unavailable.
+        }
+        if (profileSelect.value) void selectLibrary();
 
     </script>
 </body>
