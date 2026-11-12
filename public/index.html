@@ -334,6 +334,10 @@
         [hidden] { display: none !important; }
         #candidates { width: 100%; padding: 12px; }
         #status { color: white; margin-bottom: 12px; }
+        #translationDialog { width: min(26rem, 90vw); margin: auto; padding: 1.25rem; border: 0; border-radius: 12px; }
+        #translationDialog::backdrop { background: rgb(0 0 0 / 45%); }
+        #translationDialog textarea { display: block; width: 100%; margin: 0.5rem 0; font: inherit; }
+        #translationFeedback { color: #9b2525; }
         .controls { flex-wrap: wrap; }
     </style>
 </head>
@@ -399,6 +403,16 @@
             </div>
         </div>
         </section>
+        <dialog id="translationDialog" aria-labelledby="translationTitle">
+            <form id="translationForm">
+                <h2 id="translationTitle">編輯中文</h2>
+                <label for="translationInput">中文翻譯</label>
+                <textarea id="translationInput" rows="3" maxlength="500" required autofocus></textarea>
+                <p id="translationFeedback" role="status"></p>
+                <button id="cancelTranslation" type="button" class="learn-btn">取消</button>
+                <button id="saveTranslation" type="submit" class="learn-btn">儲存</button>
+            </form>
+        </dialog>
     </div>
 
     <script>
@@ -435,6 +449,48 @@
         let latestLoad = 0;
         const byId = id => document.getElementById(id);
         const notice = message => { byId('status').textContent = message; };
+        const translationDialog = byId('translationDialog');
+        let editingWord;
+
+        function openTranslationEditor(item) {
+            editingWord = item.word;
+            byId('translationTitle').textContent = '編輯中文 · ' + item.word;
+            byId('translationInput').value = item.translation;
+            byId('translationFeedback').textContent = '';
+            translationDialog.showModal();
+        }
+
+        byId('cancelTranslation').onclick = () => translationDialog.close();
+        translationDialog.oncancel = event => {
+            if (byId('saveTranslation').disabled) event.preventDefault();
+        };
+        byId('translationForm').onsubmit = event => {
+            event.preventDefault();
+            const save = byId('saveTranslation');
+            if (save.disabled) return;
+            const input = byId('translationInput');
+            const feedback = byId('translationFeedback');
+            const cancel = byId('cancelTranslation');
+            void perform(save, async () => {
+                feedback.textContent = '';
+                input.readOnly = true;
+                cancel.disabled = true;
+                try {
+                    const { translation } = await api('words', 'PATCH', { word: editingWord, translation: input.value });
+                    latestLoad++;
+                    const item = wordsData.find(word => word.word === editingWord);
+                    if (item) item.translation = translation;
+                    translationDialog.close();
+                    render();
+                    notice('已儲存中文翻譯。');
+                } catch (error) {
+                    feedback.textContent = error.message;
+                } finally {
+                    input.readOnly = false;
+                    cancel.disabled = false;
+                }
+            });
+        };
 
         async function api(path, method = 'GET', body) {
             const url = new URL('/api/' + path, location.origin);
@@ -579,6 +635,12 @@
                     line.textContent = value;
                     detail.append(line);
                 }
+                const editTranslation = document.createElement('button');
+                editTranslation.type = 'button';
+                editTranslation.className = 'learn-btn';
+                editTranslation.textContent = '編輯中文';
+                editTranslation.onclick = () => openTranslationEditor(item);
+                detail.append(editTranslation);
                 const actions = document.createElement('div');
                 actions.className = 'card-footer';
                 const grade = (label, result) => {

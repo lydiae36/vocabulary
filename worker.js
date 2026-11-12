@@ -44,10 +44,18 @@ export default {
       const { results } = await env.DB.prepare("SELECT data FROM words WHERE profile = ? ORDER BY rowid").bind(profile).all();
       return reply({ profile, label: profiles[profile], words: results.map(row => JSON.parse(row.data)) });
     }
-    if (request.method !== "POST" && request.method !== "PUT") return reply({}, 405);
+    if (!["POST", "PUT", "PATCH"].includes(request.method)) return reply({}, 405);
     const body = await request.json().catch(() => null);
     if (!body || typeof body.word !== "string" || body.word.length > 80 || !wordPattern.test(body.word)) return reply({ error: "單字格式不正確。" }, 400);
     const word = body.word.toLowerCase();
+    if (request.method === "PATCH") {
+      const translation = typeof body.translation === "string" ? body.translation.trim() : "";
+      if (!translation || translation.length > 500) return reply({ error: "請輸入 1 到 500 字的中文翻譯。" }, 400);
+      const result = await env.DB.prepare("UPDATE words SET data = json_set(data, '$.translation', ?) WHERE profile = ? AND word = ?")
+        .bind(translation, profile, word).run();
+      if (!result.meta.changes) return reply({ error: "找不到單字。" }, 404);
+      return reply({ translation });
+    }
     if (request.method === "POST") {
       const entry = {
         word,
