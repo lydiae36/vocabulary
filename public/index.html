@@ -346,22 +346,12 @@
 
 
         <p id="status" role="status"></p>
-        <form id="login" class="controls">
-            <label>選擇單字庫
-                <select id="profile">
-                    <option value="parent">我的單字庫</option>
-                    <option value="son">兒子的單字庫</option>
-                    <option value="daughter">女兒的單字庫</option>
-                </select>
-            </label>
-            <label>登入碼 <input id="code" type="password" autocomplete="current-password" required></label>
-            <button id="loginButton" class="learn-btn">進入單字庫</button>
-        </form>
+        <p id="login" hidden>請開啟你的專屬連結，直接進入單字庫。</p>
         <section id="library" hidden>
         <div class="controls">
             <strong id="profileLabel"></strong>
             <button id="dueCount" class="learn-btn">待複習 0 個</button>
-            <button id="logout" class="learn-btn">切換使用者</button>
+            <button id="logout" class="learn-btn">登出</button>
         </div>
         <div class="controls">
             <label for="photo">拍課本或選照片</label>
@@ -680,14 +670,17 @@
             } finally { await worker.terminate(); }
         }
 
-        byId('login').onsubmit = event => {
-            event.preventDefault();
-            void perform(byId('loginButton'), async () => {
-                await api('login', 'POST', { profile: byId('profile').value, code: byId('code').value });
-                byId('code').value = '';
-                await loadWords();
-            });
-        };
+        async function openLibrary() {
+            const link = new URLSearchParams(location.hash.slice(1));
+            if (link.has('profile') || link.has('code')) {
+                history.replaceState(null, '', location.pathname + location.search);
+                const profile = link.get('profile');
+                const code = link.get('code');
+                if (!profile || !code) throw Error('專屬連結不完整，請重新開啟原始連結。');
+                await api('login', 'POST', { profile, code });
+            }
+            await loadWords();
+        }
         byId('logout').onclick = event => void perform(event.currentTarget, async () => {
             await api('logout', 'POST');
             byId('newWord').value = '';
@@ -717,7 +710,14 @@
                 void loadWords().catch(error => notice(error.message));
             }
         });
-        void loadWords().catch(error => { if (error.message !== '請先登入單字庫。') notice(error.message); });
+        window.addEventListener('hashchange', () => {
+            const link = new URLSearchParams(location.hash.slice(1));
+            if (link.has('profile') || link.has('code')) location.reload();
+        });
+        void openLibrary().catch(error => {
+            showLogin();
+            if (error.message !== '請先登入單字庫。') notice(error.message);
+        });
 
     </script>
 </body>
