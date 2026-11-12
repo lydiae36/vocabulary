@@ -127,31 +127,26 @@
         }
 
         .play-btn {
-            padding: 10px 16px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            flex: 0 0 auto;
+            width: 34px;
+            height: 34px;
+            padding: 0;
+            background: transparent;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            white-space: nowrap;
+            font-size: 16px;
         }
 
         .play-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            background: #eee9fb;
         }
 
         .play-btn:active {
             transform: scale(0.98);
         }
 
-        .play-btn.loading {
+        .play-btn:disabled {
             opacity: 0.7;
             cursor: not-allowed;
         }
@@ -327,10 +322,6 @@
                 font-size: 20px;
             }
 
-            .play-btn {
-                padding: 8px 12px;
-                font-size: 13px;
-            }
         }
         [hidden] { display: none !important; }
         #candidates { width: 100%; padding: 12px; }
@@ -346,6 +337,8 @@
         .dialog-feedback:empty { display: none; }
         .card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
         .card-heading .word { min-width: 0; overflow-wrap: anywhere; }
+        .word-with-audio { display: flex; align-items: center; gap: 0.25rem; min-width: 0; }
+        .word-with-audio .word { margin-bottom: 0; }
         .edit-translation {
             flex: 0 0 auto;
             width: 44px;
@@ -569,7 +562,7 @@
             if (button.disabled) return;
             stopPlayback?.();
             button.disabled = true;
-            button.textContent = '🔊 播放中…';
+            button.setAttribute('aria-busy', 'true');
 
             const audio = new Audio('https://translate.google.com/translate_tts?ie=UTF-8&q=' +
                 encodeURIComponent(word) + '&tl=en&client=tw-ob');
@@ -582,7 +575,7 @@
                 currentAudio = null;
                 stopPlayback = undefined;
                 button.disabled = false;
-                button.textContent = '🔊 發音';
+                button.removeAttribute('aria-busy');
             }
             stopPlayback = () => {
                 audio.pause();
@@ -660,7 +653,10 @@
                 title.textContent = item.word;
                 const audio = document.createElement('button');
                 audio.className = 'play-btn';
-                audio.textContent = '🔊 發音';
+                audio.type = 'button';
+                audio.textContent = '🔊';
+                audio.title = '發音';
+                audio.setAttribute('aria-label', '發音：' + item.word);
                 audio.onclick = () => void playAudio(item.word, audio);
                 const detail = document.createElement('div');
                 detail.hidden = filter === 'due';
@@ -679,7 +675,10 @@
                 editTranslation.title = '編輯中文';
                 editTranslation.hidden = detail.hidden;
                 editTranslation.onclick = () => openTranslationEditor(item);
-                heading.append(title, editTranslation);
+                const wordWithAudio = document.createElement('div');
+                wordWithAudio.className = 'word-with-audio';
+                wordWithAudio.append(title, audio);
+                heading.append(wordWithAudio, editTranslation);
                 const actions = document.createElement('div');
                 actions.className = 'card-footer';
                 const grade = (label, result) => {
@@ -708,7 +707,7 @@
                 } else {
                     actions.textContent = '下次複習：' + new Date(item.due).toLocaleDateString('zh-TW');
                 }
-                card.append(heading, audio, detail, actions);
+                card.append(heading, detail, actions);
                 container.append(card);
             }
         }
@@ -781,6 +780,8 @@
 
         const profileSelect = byId('profile');
         const profileStorageKey = 'vocabulary.lastProfile';
+        const filterSelect = byId('filterSelect');
+        const filterStorageKey = 'vocabulary.lastFilter';
         for (const [buttonId, dialogId] of [['openProfiles', 'profileDialog'], ['openPhoto', 'photoDialog'], ['openAdd', 'addDialog']]) {
             const dialog = byId(dialogId);
             byId(buttonId).onclick = () => {
@@ -806,7 +807,6 @@
             byId('candidates').value = '';
             byId('photo').value = '';
             byId('searchInput').value = '';
-            byId('filterSelect').value = 'all';
             try {
                 await loadWords();
             } catch (error) {
@@ -841,7 +841,14 @@
         byId('scan').onclick = event => void perform(event.currentTarget, () => scan(byId('photo').files[0]));
         byId('importWords').onclick = event => void perform(event.currentTarget, () => addWords(byId('candidates').value));
         byId('searchInput').oninput = render;
-        byId('filterSelect').onchange = render;
+        filterSelect.onchange = () => {
+            try {
+                localStorage.setItem(filterStorageKey, filterSelect.value);
+            } catch {
+                // Filtering still works when browser storage is unavailable.
+            }
+            render();
+        };
         byId('dueCount').onclick = () => {
             byId('filterSelect').value = 'due';
             byId('searchInput').value = '';
@@ -858,6 +865,10 @@
         });
         profileSelect.value = '';
         try {
+            const savedFilter = localStorage.getItem(filterStorageKey);
+            if (Array.from(filterSelect.options).some(option => option.value === savedFilter)) {
+                filterSelect.value = savedFilter;
+            }
             const savedProfile = localStorage.getItem(profileStorageKey);
             if (Array.from(profileSelect.options).some(option => !option.disabled && option.value === savedProfile)) {
                 profileSelect.value = savedProfile;
