@@ -658,7 +658,14 @@
             if (!file || file.size > 15 * 1024 * 1024) throw Error('請選擇 15 MB 以下的課本照片。');
             notice('正在準備辨識。');
             ocrLibrary ??= import('https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/tesseract.esm.min.js')
-                .catch(error => { ocrLibrary = undefined; throw error; });
+                .then(({ default: tesseract }) => {
+                    if (typeof tesseract?.createWorker !== 'function') throw Error('無法載入英文辨識工具。');
+                    return tesseract;
+                })
+                .catch(() => {
+                    ocrLibrary = undefined;
+                    throw Error('無法載入英文辨識工具，請確認網路後再試。');
+                });
             const { createWorker } = await ocrLibrary;
             const worker = await createWorker('eng', 1, {
                 workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/worker.min.js',
