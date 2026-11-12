@@ -346,12 +346,18 @@
 
 
         <p id="status" role="status"></p>
-        <p id="login" hidden>請開啟你的專屬連結，直接進入單字庫。</p>
+        <div class="controls">
+            <label for="profile">選擇單字庫</label>
+            <select id="profile">
+                <option value="" selected disabled>請選擇人員</option>
+                <option value="parent">我的單字庫</option>
+                <option value="son">兒子的單字庫</option>
+                <option value="daughter">女兒的單字庫</option>
+            </select>
+        </div>
         <section id="library" hidden>
         <div class="controls">
-            <strong id="profileLabel"></strong>
             <button id="dueCount" class="learn-btn">待複習 0 個</button>
-            <button id="logout" class="learn-btn">登出</button>
         </div>
         <div class="controls">
             <label for="photo">拍課本或選照片</label>
@@ -425,49 +431,44 @@
         let currentAudio = null;
         let wordsData = [];
         let profile = null;
+        let latestLoad = 0;
         const byId = id => document.getElementById(id);
         const notice = message => { byId('status').textContent = message; };
 
         async function api(path, method = 'GET', body) {
-            const response = await fetch('/api/' + path, {
+            const url = new URL('/api/' + path, location.origin);
+            if (path === 'words') url.searchParams.set('profile', profile);
+            const response = await fetch(url, {
                 method,
                 ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
             });
             const data = await response.json();
             if (!response.ok) {
-                if (response.status === 401 && path !== 'login') showLogin();
                 throw Error(data.error || '操作未完成，請稍後再試。');
             }
             return data;
         }
 
-        function showLogin() {
-            profile = null;
-            wordsData = [];
-            byId('library').hidden = true;
-            byId('login').hidden = false;
-            render();
-        }
-
         async function loadWords() {
+            const load = ++latestLoad;
             const data = await api('words');
-            profile = data.profile;
+            if (load !== latestLoad) return;
             wordsData = data.words;
-            byId('profileLabel').textContent = data.label;
             byId('library').hidden = false;
-            byId('login').hidden = true;
             render();
         }
 
         async function perform(button, action) {
             if (byId('library').inert) return;
             button.disabled = true;
+            byId('profile').disabled = true;
             byId('library').inert = true;
             notice('');
             try { await action(); }
             catch (error) { notice(error.message); }
             finally {
                 button.disabled = false;
+                byId('profile').disabled = false;
                 byId('library').inert = false;
             }
         }
@@ -670,25 +671,22 @@
             } finally { await worker.terminate(); }
         }
 
-        async function openLibrary() {
-            const link = new URLSearchParams(location.hash.slice(1));
-            if (link.has('profile') || link.has('code')) {
-                history.replaceState(null, '', location.pathname + location.search);
-                const profile = link.get('profile');
-                const code = link.get('code');
-                if (!profile || !code) throw Error('專屬連結不完整，請重新開啟原始連結。');
-                await api('login', 'POST', { profile, code });
-            }
-            await loadWords();
-        }
-        byId('logout').onclick = event => void perform(event.currentTarget, async () => {
-            await api('logout', 'POST');
+        byId('profile').onchange = event => void perform(event.currentTarget, async () => {
+            profile = byId('profile').value;
+            byId('library').hidden = true;
+            stopPlayback?.();
             byId('newWord').value = '';
             byId('candidates').value = '';
             byId('photo').value = '';
             byId('searchInput').value = '';
             byId('filterSelect').value = 'all';
-            showLogin();
+            try {
+                await loadWords();
+            } catch (error) {
+                profile = null;
+                byId('profile').value = '';
+                throw error;
+            }
         });
         byId('addWordBtn').onclick = event => void perform(event.currentTarget, async () => {
             const word = byId('newWord').value.trim();
@@ -710,14 +708,7 @@
                 void loadWords().catch(error => notice(error.message));
             }
         });
-        window.addEventListener('hashchange', () => {
-            const link = new URLSearchParams(location.hash.slice(1));
-            if (link.has('profile') || link.has('code')) location.reload();
-        });
-        void openLibrary().catch(error => {
-            showLogin();
-            if (error.message !== '請先登入單字庫。') notice(error.message);
-        });
+        byId('profile').value = '';
 
     </script>
 </body>

@@ -1,6 +1,4 @@
 const profiles = { parent: "我的單字庫", son: "兒子的單字庫", daughter: "女兒的單字庫" };
-const cookie = "__Host-vocabulary";
-const encoder = new TextEncoder();
 const wordPattern = /^[a-z]+(?:[-' ][a-z]+)*$/i;
 
 async function lookupWord(word) {
@@ -26,64 +24,21 @@ function reply(body, status = 200, headers = {}) {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store", ...headers } });
 }
 
-function profileCode(env, profile) {
-  return Object.hasOwn(profiles, profile) ? env[`CODE_${profile.toUpperCase()}`] : undefined;
-}
-
-async function sign(value, secret) {
-  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  return new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(value)));
-}
-
-function equal(a, b) {
-  return a.length === b.length && crypto.subtle.timingSafeEqual(a, b);
-}
-
-async function identity(request, env) {
-  const token = request.headers.get("Cookie")?.split(/;\s*/).find(part => part.startsWith(cookie + "="))?.slice(cookie.length + 1);
-  const [profile, expiry, nonce, signature, extra] = token?.split(".") ?? [];
-  const code = profileCode(env, profile);
-  if (!code || !signature || extra !== undefined || !/^\d+$/.test(expiry) ||
-      Number(expiry) <= Date.now() || !/^[0-9a-f-]{36}$/.test(nonce)) return null;
-  const expected = await sign(`${profile}.${expiry}.${nonce}`, code);
-  try {
-    return equal(expected, Uint8Array.from(atob(signature), char => char.charCodeAt(0))) ? profile : null;
-  } catch {
-    return null;
-  }
-}
-
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method !== "GET" && request.headers.get("Origin") !== url.origin) {
       return reply({ error: "請從單字網站操作。" }, 403);
     }
-    if (url.pathname === "/api/login" && request.method === "POST") {
-      const { profile, code } = await request.json().catch(() => ({})) ?? {};
-      const secret = profileCode(env, profile);
-      if (!secret || typeof code !== "string" || code.length > 128 ||
-          !equal(await sign("login", code || "invalid"), await sign("login", secret))) {
-        return reply({ error: "單字庫或登入碼不正確。" }, 401);
-      }
-      const maxAge = 30 * 86400;
-      const value = `${profile}.${Date.now() + maxAge * 1000}.${crypto.randomUUID()}`;
-      const signature = btoa(String.fromCharCode(...await sign(value, secret)));
-      return reply({ profile, label: profiles[profile] }, 200, {
-        "Set-Cookie": `${cookie}=${value}.${signature}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`,
-      });
-    }
-    if (url.pathname === "/api/logout" && request.method === "POST") {
-      return reply({}, 200, { "Set-Cookie": `${cookie}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax` });
-    }
-    const profile = await identity(request, env);
-    if (!profile) return reply({ error: "請先登入單字庫。" }, 401);
     if (url.pathname === "/api/lookup" && request.method === "GET") {
       const word = url.searchParams.get("word")?.trim().toLowerCase() ?? "";
       if (word.length > 80 || !wordPattern.test(word)) return reply({ error: "單字格式不正確。" }, 400);
       return reply(await lookupWord(word));
     }
     if (url.pathname !== "/api/words") return reply({ error: "找不到頁面。" }, 404);
+
+    const profile = url.searchParams.get("profile");
+    if (!Object.hasOwn(profiles, profile)) return reply({ error: "請選擇單字庫。" }, 400);
 
     if (request.method === "GET") {
       const { results } = await env.DB.prepare("SELECT data FROM words WHERE profile = ? ORDER BY rowid").bind(profile).all();
