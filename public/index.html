@@ -361,7 +361,6 @@
         <div class="controls">
             <strong id="profileLabel"></strong>
             <button id="dueCount" class="learn-btn">待複習 0 個</button>
-            <button id="fillDetails" class="learn-btn">補查中文和例句</button>
             <button id="logout" class="learn-btn">切換使用者</button>
         </div>
         <div class="controls">
@@ -372,12 +371,6 @@
             <textarea id="candidates" rows="5" placeholder="辨識結果會出現在這裡，也可以貼上英文單字"></textarea>
             <button id="importWords" class="learn-btn">加入候選單字</button>
         </div>
-        <details id="legacy" class="controls" hidden>
-            <summary>匯入舊單字</summary>
-            <button id="seed" class="learn-btn">加入原版內建單字</button>
-            <label>匯入舊單字 JSON <input id="legacyFile" type="file" accept=".json,application/json"></label>
-            <p id="legacyStatus" role="status"></p>
-        </details>
 
         <div class="controls">
             <input type="text" id="searchInput" placeholder="搜尋單字或翻譯...">
@@ -471,19 +464,18 @@
             profile = data.profile;
             wordsData = data.words;
             byId('profileLabel').textContent = data.label;
-            byId('legacy').hidden = profile !== 'parent';
             byId('library').hidden = false;
             byId('login').hidden = true;
             render();
         }
 
-        async function perform(button, action, feedback = notice) {
+        async function perform(button, action) {
             if (byId('library').inert) return;
             button.disabled = true;
             byId('library').inert = true;
-            feedback('');
+            notice('');
             try { await action(); }
-            catch (error) { feedback(error.message); }
+            catch (error) { notice(error.message); }
             finally {
                 button.disabled = false;
                 byId('library').inert = false;
@@ -658,7 +650,7 @@
                 }
             } finally { if (profile) await loadWords(); }
             const incomplete = wordsData.filter(item => pending.includes(item.word) && (!item.translation || !item.example)).length;
-            notice('已加入 ' + pending.length + ' 個單字。' + (incomplete ? '其中 ' + incomplete + ' 個資料不齊，可按「補查中文和例句」。' : ''));
+            notice('已加入 ' + pending.length + ' 個單字。' + (incomplete ? '其中 ' + incomplete + ' 個查不到完整的中文或例句。' : ''));
         }
 
         let ocrLibrary;
@@ -711,22 +703,6 @@
             await addWords(word);
             byId('newWord').value = '';
         });
-        byId('fillDetails').onclick = event => void perform(event.currentTarget, async () => {
-            const missing = wordsData.filter(item => !item.translation || !item.example);
-            let filled = 0;
-            for (const item of missing) {
-                notice('正在補查 ' + item.word);
-                const entry = await lookup(item.word);
-                if ((!item.translation && entry.translation) || (!item.example && entry.example)) {
-                    await api('words', 'POST', entry);
-                    filled++;
-                }
-            }
-            await loadWords();
-            const remaining = wordsData.filter(item => !item.translation || !item.example).length;
-            notice('已補上 ' + filled + ' 個單字的資料。' +
-                (remaining ? '仍有 ' + remaining + ' 個單字查不到完整的中文或例句。' : ''));
-        });
         byId('scan').onclick = event => void perform(event.currentTarget, () => scan(byId('photo').files[0]));
         byId('importWords').onclick = event => void perform(event.currentTarget, () => addWords(byId('candidates').value));
         byId('searchInput').oninput = render;
@@ -736,48 +712,6 @@
             byId('searchInput').value = '';
             render();
         };
-        const legacyNotice = message => { byId('legacyStatus').textContent = message; };
-        byId('seed').onclick = event => void perform(event.currentTarget, async () => {
-            legacyNotice('正在檢查原版內建單字…');
-            await loadWords();
-            const existing = new Map(wordsData.map(item => [item.word, item]));
-            const pending = starterWords.filter(entry => {
-                const item = existing.get(entry.word);
-                return !item || !item.translation || !item.example || !item.phonetic;
-            });
-            if (!pending.length) {
-                legacyNotice('原版的 ' + starterWords.length + ' 個單字都已在單字庫裡。');
-                return;
-            }
-            let done = 0;
-            try {
-                for (const entry of pending) {
-                    legacyNotice('正在匯入 ' + (done + 1) + '／' + pending.length + '…');
-                    await api('words', 'POST', entry);
-                    done++;
-                }
-            } finally { if (profile) await loadWords(); }
-            const added = pending.filter(entry => !existing.has(entry.word)).length;
-            byId('filterSelect').value = 'all';
-            byId('searchInput').value = '';
-            render();
-            legacyNotice('已新增 ' + added + ' 個單字，補齊 ' + (pending.length - added) + ' 個。');
-        }, legacyNotice);
-        byId('legacyFile').onchange = event => void perform(event.currentTarget, async () => {
-            const file = event.currentTarget.files[0];
-            if (!file) return;
-            if (file.size > 1024 * 1024) throw Error('請選擇 1 MB 以下的原版單字 JSON。');
-            const entries = JSON.parse(await file.text());
-            if (!Array.isArray(entries) || entries.length > 500 || !entries.every(entry =>
-                entry && typeof entry.word === 'string' && entry.word.length <= 80 &&
-                /^[a-z]+(?:[-' ][a-z]+)*$/i.test(entry.word.trim()))) {
-                throw Error('單字備份格式不正確。');
-            }
-            try {
-                for (const entry of entries) await api('words', 'POST', { ...entry, word: entry.word.trim() });
-            } finally { if (profile) await loadWords(); }
-            legacyNotice('舊單字已匯入。舊版已學會的單字會排入待複習。');
-        }, legacyNotice);
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && profile && !byId('library').inert) {
                 void loadWords().catch(error => notice(error.message));
