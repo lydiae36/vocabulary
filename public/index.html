@@ -358,6 +358,7 @@
         <section id="library" hidden>
         <div class="controls">
             <button id="dueCount" class="learn-btn">待複習 0 個</button>
+            <p id="reviewHint" role="status" hidden></p>
         </div>
         <div class="controls">
             <label for="photo">拍課本或選照片</label>
@@ -386,7 +387,7 @@
             <p style="margin: 12px 0 0 0; font-size: 12px; color: #718096;">輸入單字後會自動產生翻譯、音標和例句</p>
         </div>
 
-        <div class="cards-container" id="cardsContainer"></div>
+        <div class="cards-container" id="cardsContainer" tabindex="-1" aria-label="單字清單"></div>
 
         <div class="progress-section">
             <div class="progress-label">學習進度</div>
@@ -540,6 +541,11 @@
             const learned = wordsData.filter(word => word.learned).length;
             const due = wordsData.filter(isDue).length;
             byId('dueCount').textContent = '待複習 ' + due + ' 個';
+            const reviewHint = byId('reviewHint');
+            reviewHint.hidden = filter !== 'due' || due > 0;
+            reviewHint.textContent = reviewHint.hidden ? '' : learned
+                ? '目前沒有到期的單字。可在「已學習」查看下次複習日期。'
+                : '目前沒有到期的單字。按「標記已學會」後，隔天就能複習。';
             byId('progressText').textContent = learned;
             byId('totalWords').textContent = wordsData.length;
             byId('progressFill').style.width = (wordsData.length ? learned / wordsData.length * 100 : 0) + '%';
@@ -702,6 +708,10 @@
             byId('filterSelect').value = 'due';
             byId('searchInput').value = '';
             render();
+            if (byId('reviewHint').hidden) {
+                byId('cardsContainer').focus({ preventScroll: true });
+                byId('cardsContainer').scrollIntoView({ block: 'start' });
+            }
         };
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && profile && !byId('library').inert) {
