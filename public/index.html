@@ -361,6 +361,7 @@
         <div class="controls">
             <strong id="profileLabel"></strong>
             <button id="dueCount" class="learn-btn">待複習 0 個</button>
+            <button id="fillDetails" class="learn-btn">補查中文和例句</button>
             <button id="logout" class="learn-btn">切換使用者</button>
         </div>
         <div class="controls">
@@ -622,19 +623,25 @@
         }
 
         async function lookup(word) {
-            const response = await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word), { signal: AbortSignal.timeout(8000) });
-            if (!response.ok) return { word };
-            const [entry] = await response.json();
-            const definition = entry?.meanings?.[0]?.definitions?.[0];
-            if (!definition) return { word };
-            let translation = definition.definition;
-            try {
-                const translated = await fetch('https://api.mymemory.translated.net/get?q=' +
-                    encodeURIComponent(translation) + '&langpair=en|zh-TW', { signal: AbortSignal.timeout(8000) });
-                const data = await translated.json();
-                if (data.responseStatus === 200) translation = data.responseData.translatedText;
-            } catch { /* Keep the dictionary definition. */ }
-            return { word, translation, phonetic: entry.phonetic || '', example: definition.example || '' };
+            const known = starterWords.find(entry => entry.word === word);
+            if (known) return known;
+            const entry = await api('lookup?word=' + encodeURIComponent(word));
+            const [dictionary, translation] = await Promise.allSettled([
+                entry.example ? [] : fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word), { signal: AbortSignal.timeout(8000) })
+                    .then(response => response.ok ? response.json() : []),
+                entry.translation ? null : fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(word) + '&langpair=en%7Czh-TW', { signal: AbortSignal.timeout(8000) })
+                    .then(response => response.ok ? response.json() : null),
+            ]);
+            if (dictionary.status === 'fulfilled' && Array.isArray(dictionary.value)) {
+                const definitions = dictionary.value.flatMap(item => item.meanings ?? []).flatMap(meaning => meaning.definitions ?? []);
+                entry.example ||= definitions.find(item => item.example)?.example ?? '';
+                entry.phonetic ||= dictionary.value.find(item => item.phonetic)?.phonetic ?? '';
+            }
+            if (translation.status === 'fulfilled' && translation.value?.responseStatus === 200) {
+                const value = translation.value.responseData?.translatedText;
+                if (typeof value === 'string' && /\p{Script=Han}/u.test(value)) entry.translation = value;
+            }
+            return entry;
         }
 
         async function addWords(input) {
@@ -650,7 +657,8 @@
                     await api('words', 'POST', entry);
                 }
             } finally { if (profile) await loadWords(); }
-            notice('已加入 ' + pending.length + ' 個單字。');
+            const incomplete = wordsData.filter(item => pending.includes(item.word) && (!item.translation || !item.example)).length;
+            notice('已加入 ' + pending.length + ' 個單字。' + (incomplete ? '其中 ' + incomplete + ' 個資料不齊，可按「補查中文和例句」。' : ''));
         }
 
         let ocrLibrary;
@@ -702,6 +710,22 @@
             if (!/^[a-z]+(?:[-'][a-z]+)*$/i.test(word)) throw Error('請輸入一個英文單字。');
             await addWords(word);
             byId('newWord').value = '';
+        });
+        byId('fillDetails').onclick = event => void perform(event.currentTarget, async () => {
+            const missing = wordsData.filter(item => !item.translation || !item.example);
+            let filled = 0;
+            for (const item of missing) {
+                notice('正在補查 ' + item.word);
+                const entry = await lookup(item.word);
+                if ((!item.translation && entry.translation) || (!item.example && entry.example)) {
+                    await api('words', 'POST', entry);
+                    filled++;
+                }
+            }
+            await loadWords();
+            const remaining = wordsData.filter(item => !item.translation || !item.example).length;
+            notice('已補上 ' + filled + ' 個單字的資料。' +
+                (remaining ? '仍有 ' + remaining + ' 個單字查不到完整的中文或例句。' : ''));
         });
         byId('scan').onclick = event => void perform(event.currentTarget, () => scan(byId('photo').files[0]));
         byId('importWords').onclick = event => void perform(event.currentTarget, () => addWords(byId('candidates').value));

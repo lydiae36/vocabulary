@@ -3,6 +3,25 @@ const cookie = "__Host-vocabulary";
 const encoder = new TextEncoder();
 const wordPattern = /^[a-z]+(?:[-' ][a-z]+)*$/i;
 
+async function lookupWord(word) {
+  const [dictionary, translated] = await Promise.allSettled([
+    fetch("https://api.dictionaryapi.dev/api/v2/entries/en/" + encodeURIComponent(word), { signal: AbortSignal.timeout(8000) })
+      .then(response => response.ok ? response.json() : []),
+    fetch("https://api.mymemory.translated.net/get?q=" + encodeURIComponent(word) + "&langpair=en%7Czh-TW", { signal: AbortSignal.timeout(8000) })
+      .then(response => response.ok ? response.json() : null),
+  ]);
+  const entries = dictionary.status === "fulfilled" && Array.isArray(dictionary.value) ? dictionary.value : [];
+  const translation = translated.status === "fulfilled" && translated.value?.responseStatus === 200
+    ? translated.value.responseData?.translatedText : "";
+  const definitions = entries.flatMap(entry => entry.meanings ?? []).flatMap(meaning => meaning.definitions ?? []);
+  return {
+    word,
+    translation: typeof translation === "string" && /\p{Script=Han}/u.test(translation) ? translation : "",
+    phonetic: entries.find(entry => entry.phonetic)?.phonetic ?? "",
+    example: definitions.find(definition => definition.example)?.example ?? "",
+  };
+}
+
 function reply(body, status = 200, headers = {}) {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store", ...headers } });
 }
@@ -59,6 +78,11 @@ export default {
     }
     const profile = await identity(request, env);
     if (!profile) return reply({ error: "請先登入單字庫。" }, 401);
+    if (url.pathname === "/api/lookup" && request.method === "GET") {
+      const word = url.searchParams.get("word")?.trim().toLowerCase() ?? "";
+      if (word.length > 80 || !wordPattern.test(word)) return reply({ error: "單字格式不正確。" }, 400);
+      return reply(await lookupWord(word));
+    }
     if (url.pathname !== "/api/words") return reply({ error: "找不到頁面。" }, 404);
 
     if (request.method === "GET") {
@@ -79,7 +103,11 @@ export default {
         stage: 0,
         due: body.learned === true ? Date.now() : null,
       };
-      await env.DB.prepare("INSERT INTO words (profile, word, data) VALUES (?, ?, ?) ON CONFLICT DO NOTHING")
+      await env.DB.prepare(`INSERT INTO words (profile, word, data) VALUES (?, ?, ?)
+        ON CONFLICT (profile, word) DO UPDATE SET data = json_set(words.data,
+          '$.translation', COALESCE(NULLIF(json_extract(words.data, '$.translation'), ''), json_extract(excluded.data, '$.translation')),
+          '$.phonetic', COALESCE(NULLIF(json_extract(words.data, '$.phonetic'), ''), json_extract(excluded.data, '$.phonetic')),
+          '$.example', COALESCE(NULLIF(json_extract(words.data, '$.example'), ''), json_extract(excluded.data, '$.example')))`)
         .bind(profile, word, JSON.stringify(entry)).run();
     } else {
       const prior = await env.DB.prepare("SELECT data FROM words WHERE profile = ? AND word = ?").bind(profile, word).first();
