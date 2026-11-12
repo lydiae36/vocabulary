@@ -334,6 +334,21 @@
         [hidden] { display: none !important; }
         #candidates { width: 100%; padding: 12px; }
         #status { color: white; margin-bottom: 12px; }
+        .card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
+        .card-heading .word { min-width: 0; overflow-wrap: anywhere; }
+        .edit-translation {
+            flex: 0 0 auto;
+            width: 44px;
+            height: 44px;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: #4c3c84;
+            font: inherit;
+            font-size: 1.4rem;
+            cursor: pointer;
+        }
+        .edit-translation:hover { background: #eee9fb; }
         #translationDialog { width: min(26rem, 90vw); margin: auto; padding: 1.25rem; border: 0; border-radius: 12px; }
         #translationDialog::backdrop { background: rgb(0 0 0 / 45%); }
         #translationDialog textarea { display: block; width: 100%; margin: 0.5rem 0; font: inherit; }
@@ -619,6 +634,8 @@
             for (const item of visible) {
                 const card = document.createElement('article');
                 card.className = 'card' + (item.learned ? ' learned' : '');
+                const heading = document.createElement('div');
+                heading.className = 'card-heading';
                 const title = document.createElement('h3');
                 title.className = 'word';
                 title.textContent = item.word;
@@ -637,10 +654,13 @@
                 }
                 const editTranslation = document.createElement('button');
                 editTranslation.type = 'button';
-                editTranslation.className = 'learn-btn';
-                editTranslation.textContent = '編輯中文';
+                editTranslation.className = 'edit-translation';
+                editTranslation.textContent = '✎';
+                editTranslation.setAttribute('aria-label', '編輯中文：' + item.word);
+                editTranslation.title = '編輯中文';
+                editTranslation.hidden = detail.hidden;
                 editTranslation.onclick = () => openTranslationEditor(item);
-                detail.append(editTranslation);
+                heading.append(title, editTranslation);
                 const actions = document.createElement('div');
                 actions.className = 'card-footer';
                 const grade = (label, result) => {
@@ -660,6 +680,7 @@
                     reveal.textContent = '想好意思了，顯示答案';
                     reveal.onclick = () => {
                         detail.hidden = false;
+                        editTranslation.hidden = false;
                         reveal.remove();
                         grade('想得起來', 'remembered');
                         grade('忘記了', 'forgot');
@@ -668,7 +689,7 @@
                 } else {
                     actions.textContent = '下次複習：' + new Date(item.due).toLocaleDateString('zh-TW');
                 }
-                card.append(title, audio, detail, actions);
+                card.append(heading, audio, detail, actions);
                 container.append(card);
             }
         }
