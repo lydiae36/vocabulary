@@ -1,44 +1,19 @@
-# 英文單字學習器
+# 家庭英文單字庫
 
-一個簡潔而強大的英文單字學習工具！
+一家人可以共用一個網址。每人用自己的登入碼進入單字庫，手機和電腦會從 Cloudflare D1 讀取同一份單字和複習進度。
 
-## 功能特色
+- 手機可拍課本或選照片，辨識結果可以先修改，再一次加入單字。照片在瀏覽器辨識，加入的單字才會送到單字庫。
+- 點「發音」先試 Google 語音。若載入失敗，會改用裝置的英文語音。
+- 標記已學會後，隔一天開始複習。每次想得起來就拉長間隔，依序為 3、7、14、30、60 和 120 天。忘記時隔一天再試。複習時先自己想意思，再顯示答案。
+- 舊版的單字存在原瀏覽器。請在原網址用原裝置按「匯出單字 JSON」，再登入新站的「我的單字庫」，選「匯入舊單字」。舊版已學會的單字會排入待複習。
 
-✨ **智能發音** - 點擊按鈕聽 Google 自然語音  
-📚 **自動生成** - 只需輸入英文單字，自動產生翻譯、音標和例句  
-💾 **永久保存** - 你的所有單字和學習進度都會被保存  
-🎯 **進度追蹤** - 標記已學習的單字，追蹤學習進度  
-🔍 **快速搜尋** - 輕鬆搜尋和篩選單字  
+## 部署
 
-## 使用方式
+用 Cloudflare Workers 提供網站和 API，D1 儲存資料。使用者在網站輸入個人登入碼。Cloudflare Access 不需要套用到這個 Worker。
 
-1. 打開 `vocabulary_learner.html`
-2. 在「新增單字」欄位輸入英文單字
-3. 點擊「新增單字」按鈕
-4. 系統會自動產生中文翻譯、音標和例句
-5. 點擊「🔊 發音」聽發音
-6. 點擊「標記已學」追蹤你的進度
+1. 建立 D1 資料庫，將資料庫 ID 寫進 wrangler.jsonc 的 d1_databases，綁定名稱使用 DB。
+2. 執行 npx wrangler d1 execute DB --remote --file=schema.sql。
+3. 用 npx wrangler secret put 分別設定 CODE_PARENT、CODE_SON、CODE_DAUGHTER。每人使用不同的高強度隨機登入碼，至少 128 位元隨機性。
+4. 執行 npx wrangler deploy。再分別用三個帳號登入，確認資料各自獨立。
 
-## 技術堆棧
-
-- HTML5
-- CSS3
-- JavaScript (Vanilla)
-- IndexedDB (本地儲存)
-- Google Translate API
-- Dictionary API
-
-## 瀏覽器支援
-
-✅ Chrome  
-✅ Firefox  
-✅ Safari  
-✅ Edge
-
-## 許可證
-
-MIT License
-
----
-
-享受學習英文的樂趣！ 🎓
+根目錄的 index.html 是舊站匯出資料用的版本。public/index.html 是 Workers 新站。

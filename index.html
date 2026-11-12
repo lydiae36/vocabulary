@@ -358,7 +358,7 @@
             <p style="margin: 12px 0 0 0; font-size: 12px; color: #718096;">輸入單字後會自動產生翻譯、音標和例句</p>
         </div>
 
-        <div class="cards-container" id="cardsContainer"></div>
+        <button type="button" id="exportWords" class="learn-btn" disabled>匯出單字 JSON</button><div class="cards-container" id="cardsContainer"></div>
 
         <div class="progress-section">
             <div class="progress-label">學習進度</div>
@@ -434,6 +434,7 @@
                 }
                 renderCards();
                 updateProgress();
+                document.getElementById("exportWords").disabled = false;
             };
         }
 
@@ -579,6 +580,7 @@
                     wordsData[realIndex].learned = !wordsData[realIndex].learned;
                     saveWordsToStorage();
                     updateProgress();
+                document.getElementById("exportWords").disabled = false;
                     renderCards(document.getElementById('filterSelect').value, document.getElementById('searchInput').value);
                 });
 
@@ -655,6 +657,7 @@
 
                 // 更新進度條和卡片
                 updateProgress();
+                document.getElementById("exportWords").disabled = false;
                 renderCards('all', '');
                 document.getElementById('searchInput').value = '';
 
@@ -667,6 +670,14 @@
             }
         });
 
+        document.getElementById('exportWords').onclick = () => {
+            const url = URL.createObjectURL(new Blob([JSON.stringify(wordsData, null, 2)], { type: 'application/json' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'vocabulary-backup.json';
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        };
         // 初始化（由 IndexedDB 回調觸發）
     </script>
 </body>
