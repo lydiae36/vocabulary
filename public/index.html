@@ -490,65 +490,64 @@
             }
         }
 
-        async function playAudio(word, btn) {
-            if (btn.disabled) return;
+        let stopPlayback;
+        function playAudio(word, button) {
+            if (button.disabled) return;
+            stopPlayback?.();
+            button.disabled = true;
+            button.textContent = '🔊 播放中…';
 
-            btn.disabled = true;
-            const originalContent = btn.innerHTML;
-            btn.innerHTML = '<span class="spinning">🔊</span> 播放中...';
-
-            try {
-                // 使用 Google Translate TTS (需要確保跨域支援)
-                const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(word)}&tl=en&client=tw-ob`;
-
-                if (currentAudio) {
-                    currentAudio.pause();
-                    currentAudio.currentTime = 0;
-                }
-
-                currentAudio = new Audio();
-                currentAudio.crossOrigin = "anonymous";
-                currentAudio.src = url;
-
-                currentAudio.play().catch(err => {
-                    console.error('Google Translate 不可用，使用替代方案...', err);
-                    playAudioFallback(word, btn, originalContent);
-                    return;
-                });
-
-                currentAudio.onended = () => {
-                    btn.disabled = false;
-                    btn.innerHTML = originalContent;
-                };
-
-            } catch (error) {
-                console.error('錯誤:', error);
-                playAudioFallback(word, btn, originalContent);
+            const audio = new Audio('https://translate.google.com/translate_tts?ie=UTF-8&q=' +
+                encodeURIComponent(word) + '&tl=en&client=tw-ob');
+            currentAudio = audio;
+            let timer;
+            let usingSpeech = false;
+            function finish() {
+                clearTimeout(timer);
+                if (currentAudio !== audio) return;
+                currentAudio = null;
+                stopPlayback = undefined;
+                button.disabled = false;
+                button.textContent = '🔊 發音';
             }
-        }
-
-        // 備用方案: 使用瀏覽器內置 Web Speech API
-        function playAudioFallback(word, btn, originalContent) {
-            try {
+            stopPlayback = () => {
+                audio.pause();
+                if (usingSpeech) window.speechSynthesis.cancel();
+                finish();
+            };
+            function fallback() {
+                if (currentAudio !== audio || usingSpeech) return;
+                clearTimeout(timer);
+                audio.pause();
+                if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
+                    finish();
+                    notice('目前無法播放發音，請再試一次。');
+                    return;
+                }
+                usingSpeech = true;
                 const utterance = new SpeechSynthesisUtterance(word);
                 utterance.lang = 'en-US';
                 utterance.rate = 0.9;
-                utterance.pitch = 1.0;
-
-                speechSynthesis.cancel();
-                speechSynthesis.speak(utterance);
-
-                utterance.onend = () => {
-                    btn.disabled = false;
-                    btn.innerHTML = originalContent;
+                utterance.onend = finish;
+                utterance.onerror = () => {
+                    if (currentAudio !== audio) return;
+                    finish();
+                    notice('目前無法播放發音，請再試一次。');
                 };
-
-            } catch (error) {
-                btn.disabled = false;
-                btn.innerHTML = originalContent;
+                timer = setTimeout(() => {
+                    if (currentAudio !== audio) return;
+                    finish();
+                    window.speechSynthesis.cancel();
+                    notice('語音播放逾時，請再試一次。');
+                }, 10000);
+                window.speechSynthesis.speak(utterance);
             }
+            audio.addEventListener('ended', finish);
+            audio.addEventListener('error', fallback);
+            audio.addEventListener('playing', () => clearTimeout(timer), { once: true });
+            timer = setTimeout(fallback, 6000);
+            audio.play().catch(fallback);
         }
-
 
         const isDue = word => word.learned && word.due <= Date.now();
 
