@@ -334,6 +334,25 @@
         .tool-dialog::backdrop { background: rgb(0 0 0 / 45%); }
         .tool-dialog[open], #addWordForm { display: grid; gap: 0.75rem; }
         .tool-dialog input, .tool-dialog textarea { width: 100%; min-width: 0; font: inherit; }
+        #profileDialog {
+            width: min(24rem, calc(100% - 2rem));
+            padding: 1.5rem;
+            border-radius: 18px;
+            box-shadow: 0 12px 40px rgb(45 32 84 / 24%);
+            gap: 1rem;
+        }
+        #profileTitle { font-size: 1.375rem; color: #2d3748; }
+        #profile {
+            width: 100%;
+            min-width: 0;
+            min-height: 52px;
+            padding: 0.75rem;
+            border: 1px solid #b8add6;
+            background: #f7f4ff;
+            color: #2d3748;
+            font-size: 1.125rem;
+        }
+        #profileDialog .learn-btn { min-height: 44px; font-size: 1rem; }
         .dialog-feedback:empty { display: none; }
         .card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
         .card-heading .word { min-width: 0; overflow-wrap: anywhere; }
